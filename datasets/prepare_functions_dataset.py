@@ -1,3 +1,6 @@
+# Copyright 2024 StarfleetAI
+# SPDX-License-Identifier: Apache-2.0
+
 from datasets import load_dataset, Dataset
 import json
 import re
@@ -71,7 +74,7 @@ def cleanup(example):
             right_apostrophe = text.rfind("'")
 
             args_text = text[left_apostrophe+1:right_apostrophe]
-            # Replace the single quotes with double quotes
+            # Unescape the apostrophes
             args_text = args_text.replace("\\'", "'")
             arguments = json.loads(args_text)
 
