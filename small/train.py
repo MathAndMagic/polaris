@@ -115,7 +115,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         return batch
 
-# NOTE(ri-nat): I personally think these are better names for the roles.
+# Comply with OpenAI format
 def from_to_name(from_name):
     if from_name == "human":
         return "user"
@@ -185,7 +185,7 @@ def main():
     tokenizer.padding_side = 'left'
     tokenizer.chat_template = "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
 
-    model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
+    model.resize_token_embeddings(len(tokenizer))
     # print(model)
 
     for name, param in model.named_parameters():
