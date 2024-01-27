@@ -101,10 +101,10 @@ For now, the model is only capable of calling one function at a time.
 
 ## Function Call Response
 
-The model expects the function call response to be provided from a role `fn` right after the function call request:
+The model expects the function call response to be provided from a role `tool` right after the function call request:
 
 ```
-<|im_start|>fn
+<|im_start|>tool
 {"result": "87cc47fbc865a290d7c7de4be3c893175c51a566b3"}<|im_end|>
 ```
 
@@ -132,7 +132,7 @@ You are a helpful assistant.<|im_end|>
 Generate a password, 42 characters long<|im_end|>
 <|im_start|>assistant
 <|fn_start|>{"name": "generate_password", "arguments": {"length": 42}}<|fn_end|><|im_end|>
-<|im_start|>fn
+<|im_start|>tool
 {"result": "87cc47fbc865a290d7c7de4be3c893175c51a566b3"}<|im_end|>
 <|im_start|>assistant
 Here is your random password: 87cc47fbc865a290d7c7de4be3c893175c51a566b3. Please make sure to save it in a secure place.<|im_end|>

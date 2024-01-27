@@ -36,7 +36,7 @@ class ScriptArguments:
 
 # Dirty hack for `DataCollatorForCompletionOnlyLM` from `trl` to work correctly with our conversation template.
 # The original implementation assumes there is always a `user/assistant/user/assistant/...` sequence of messages,
-# which is not true for our case, since it's possible to have a `system/user/assistant/fn/assistant/user/...` order.
+# which is not true for our case, since it's possible to have a `system/user/assistant/tool/assistant/user/...` order.
 class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     def __init__(
         self,
@@ -124,7 +124,7 @@ def from_to_name(from_name):
     elif from_name == "system":
         return "system"
     elif from_name == "function_response":
-        return "fn"
+        return "tool"
     else:
         raise ValueError(f"Unknown message type {from_name}")
 
