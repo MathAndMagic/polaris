@@ -17,7 +17,7 @@ Polaris is a family of large language models, developed by StarfleetAI with the 
 ## Features
 
 - [x] Functions calling
-  - [ ] Needs more training on examples where function call should be performed in the middle/end parts of the conversation, rather than in the beginning
+  - [x] Needs more training on examples where function call should be performed in the middle/end parts of the conversation, rather than in the beginning
 - [ ] Needs to eliminate some hallucinations (it, for example, sometimes regressing news articles instead of calling the `get_rss_feed` function, and stuff like that)
 - [ ] Correct typography (currently: `Answer:123` instead of `Answer: 123`)
 - [ ] Current date / time / timezone conversational abilities
@@ -25,9 +25,9 @@ Polaris is a family of large language models, developed by StarfleetAI with the 
 
 ## Recipe
 
+1. Combine [Code-290k](https://huggingface.co/datasets/ajibawa-2023/Code-290k-ShareGPT), [OpenOrca](https://huggingface.co/datasets/Open-Orca/OpenOrca) and [function-calling](https://huggingface.co/datasets/StarfleetAI/function-calling) into the single dataset (see [prepare_polaris_dataset.py](../datasets/prepare_polaris_dataset.py)).
 1. Take [Mistral-7B-OpenOrca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca)
-2. Train [Code-290k](https://huggingface.co/datasets/ajibawa-2023/Code-290k-ShareGPT) over it (1 epoch seems to be enough)
-3. Train [function-calling](https://huggingface.co/datasets/StarfleetAI/function-calling) over it (2-3 epochs)
+2. Trainthe combined dataset over it (we did this for 2 epochs)
 
 Or just run
 
@@ -38,7 +38,7 @@ Or just run
 ## Using Trainer
 
 ```bash
-accelerate launch --config_file ./fsdp_config.yaml train.py --num_epochs 3
+accelerate launch --config_file ./fsdp_config.yaml train.py --num_epochs 2
 ```
 
 ### Useful Options
@@ -96,7 +96,7 @@ For now, the model is only capable of calling one function at a time.
 ### Example Function Call
 
 ```
-<|fn_start|>{"name": "generate_password", "arguments": {"length": 42}}<|fn_end|>
+<|fn_start|>{"name": "generate_password", "arguments": "{\"length\": 42}"}<|fn_end|>
 ```
 
 ## Function Call Response
@@ -131,7 +131,7 @@ You are a helpful assistant.<|im_end|>
 <|im_start|>user
 Generate a password, 42 characters long<|im_end|>
 <|im_start|>assistant
-<|fn_start|>{"name": "generate_password", "arguments": {"length": 42}}<|fn_end|><|im_end|>
+<|fn_start|>{"name": "generate_password", "arguments": "{\"length\": 42}"}<|fn_end|><|im_end|>
 <|im_start|>tool
 {"result": "87cc47fbc865a290d7c7de4be3c893175c51a566b3"}<|im_end|>
 <|im_start|>assistant

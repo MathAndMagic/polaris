@@ -14,7 +14,7 @@ import wandb
 import warnings
 
 from dataclasses import dataclass, field
-from datasets import load_dataset, Dataset
+from datasets import load_from_disk, Dataset
 from datetime import timezone 
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, HfArgumentParser, DataCollatorForLanguageModeling
 from trl import SFTTrainer
@@ -31,6 +31,7 @@ class ScriptArguments:
     seed: Optional[int] = field(default=23420, metadata={"help": "Rng seed"})
     learning_rate: Optional[float] = field(default=5e-6, metadata={"help": "Learning rate"})
     num_epochs: Optional[float] = field(default=2, metadata={"help": "Number of epochs"})
+    max_seq_length: Optional[int] = field(default=4096, metadata={"help": "Max sequence length. Use more if you have enough GPU memory"})
     push_to: Optional[str] = field(default=None, metadata={"help": "HuggingFace repo to push to"})
     wandb_project: Optional[str] = field(default=None, metadata={"help": "Wandb project name"})
 
@@ -115,43 +116,6 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         return batch
 
-# Comply with OpenAI format
-def from_to_name(from_name):
-    if from_name == "human":
-        return "user"
-    elif from_name == "gpt":
-        return "assistant"
-    elif from_name == "system":
-        return "system"
-    elif from_name == "function_response":
-        return "tool"
-    else:
-        raise ValueError(f"Unknown message type {from_name}")
-
-def apply_chat_template(row):
-    messages = row["conversations"]
-    strings = []
-
-    if messages[0]["from"] != "system":
-        warnings.warn("System message is not set, adding default system message")
-
-        text = '## Configuration\n\nFunctions: disabled\n\n---\n\nYou are a helpful assistant.'
-        messages.insert(0, {
-            "from": "system",
-            "value": text
-        })
-
-    for message in messages:
-        strings.append(f"<|im_start|>{from_to_name(message['from'])}\n{message['value']}<|im_end|>")
-    
-    # NOTE: not using newlines here on purpose (differs from the original ChatML format), since:
-    #       - there is no point of having them at all
-    #       - it saves one token per message
-    #       - it makes the labels masking code in the collator cleaner and more obvious
-    row["conversations"] = "".join(strings)
-
-    return row
-
 def main():
     parser = HfArgumentParser(ScriptArguments)
     script_args = parser.parse_args_into_dataclasses()[0]
@@ -186,28 +150,14 @@ def main():
     tokenizer.chat_template = "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
 
     model.resize_token_embeddings(len(tokenizer))
-    # print(model)
 
     for name, param in model.named_parameters():
         param.requires_grad = True
 
-    dataset = load_dataset(script_args.dataset, split='train').map(apply_chat_template)
+    dataset = load_from_disk(script_args.dataset)
     ds = dataset.train_test_split(test_size=0.05, seed=script_args.seed)
     train_ds = ds["train"]
     test_ds = ds["test"]
-
-    def filter_dataset(rows, reject_top: int):
-        return Dataset.from_list(sorted(rows, key=lambda x: len(x["conversations"]))[:-len(rows)//reject_top])
-
-    # Filter out the longest conversations
-    #
-    # Feel free to comment this out if you have enough memory to train on the full length dataset.
-    # If you still getting OutOfMemory errors, try to increase the rejection coefficient.
-    train_ds = filter_dataset(train_ds, 10)
-    test_ds = filter_dataset(test_ds, 10)
-
-    # print(train_ds[0])
-    # print(test_ds[0])
 
     model.config.use_cache = False
     model.config.pretraining_tp = 1
@@ -226,10 +176,10 @@ def main():
         train_dataset = train_ds.shuffle(seed=script_args.seed),
         eval_dataset = test_ds,
         dataset_text_field = "conversations",
-        dataset_num_proc = 4,
+        dataset_num_proc = 10,
         tokenizer = tokenizer,
         packing = False,
-        max_seq_length = 4096,
+        max_seq_length = script_args.max_seq_length,
         data_collator = DataCollatorForCompletionOnlyLM(
             message_start_template = "<|im_start|>",
             response_template = "<|im_start|>assistant\n",

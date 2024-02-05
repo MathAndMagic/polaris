@@ -7,6 +7,8 @@ import re
 
 def cleanup(example):
     messages = example['conversations']
+    functions_enabled = False
+    function_called = False
 
     system_message = messages[0]
 
@@ -19,6 +21,8 @@ def cleanup(example):
 
     # Check if text has a function call
     if '<functioncall>' in text:
+        functions_enabled = True
+
         # Remove the functioncall example (`<functioncall>(.*?)</functioncall>`)
         text = re.sub(r'<functioncall>(.*?)</functioncall>', '', text)
 
@@ -63,6 +67,8 @@ def cleanup(example):
         
         # Check if text has a function call
         if '<|fn_start|>' in text:
+            function_called = True
+
             # Find the first `{` and the last `}`, parse the JSON in between.
             left_bracket = text.find('{')
             right_bracket = text.rfind('}')
@@ -81,7 +87,7 @@ def cleanup(example):
             text = text.replace(text[left_apostrophe:right_apostrophe+1], '""')
             right_bracket = text.rfind('}')
             func = json.loads(text[left_bracket:right_bracket+1])
-            func['arguments'] = arguments
+            func['arguments'] = json.dumps(arguments)
 
             # Replace the old function call with the new one
             text = text.replace(text[left_bracket:right_bracket+1], json.dumps(func))
@@ -89,6 +95,8 @@ def cleanup(example):
         messages[i+1]['value'] = text
 
     example['conversations'] = messages
+    example['functions_enabled'] = functions_enabled
+    example['function_called'] = function_called
 
     return example
 
@@ -96,7 +104,7 @@ def main():
     dataset = load_dataset("hypervariance/function-calling-sharegpt", split='train').map(cleanup)
     
     print(dataset[:5])
-    
+
     dataset.push_to_hub('StarfleetAI/function-calling')
 
 if __name__ == '__main__':
